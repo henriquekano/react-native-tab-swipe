@@ -1,0 +1,5 @@
+rootProject.name = 'example'
+include ':react-native-tab-swipe'
+project(':react-native-tab-swipe').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-tab-swipe/android')
+
+include ':app'
