@@ -8,50 +8,20 @@
  * https://github.com/facebook/react-native
  */
 
-import React, { Component } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import React, { Component, useState, useRef, useEffect } from 'react';
+import { Platform, StyleSheet, Text, View, TouchableOpacity as Touchable, Animated } from 'react-native';
 import TabSwipe from 'react-native-tab-swipe';
 
 export default class App extends Component<{}> {
   state = {
-    status: 'starting',
-    message: '--'
-  };
-  componentDidMount() {
-    TabSwipe.sampleMethod('Testing', 123, (message) => {
-      this.setState({
-        status: 'native callback received',
-        message
-      });
-    });
+    index: 1
   }
   render() {
     return (
-      <View style={styles.container}>
-        <Text style={styles.welcome}>☆TabSwipe example☆</Text>
-        <Text style={styles.instructions}>STATUS: {this.state.status}</Text>
-        <Text style={styles.welcome}>☆NATIVE CALLBACK MESSAGE☆</Text>
-        <Text style={styles.instructions}>{this.state.message}</Text>
-      </View>
+      <TabSwipe
+        onPressTab={(newIndex) => this.setState({ index: newIndex })}
+        index={this.state.index}
+      />
     );
   }
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5FCFF',
-  },
-  welcome: {
-    fontSize: 20,
-    textAlign: 'center',
-    margin: 10,
-  },
-  instructions: {
-    textAlign: 'center',
-    color: '#333333',
-    marginBottom: 5,
-  },
-});
