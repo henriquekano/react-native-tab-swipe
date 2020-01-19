@@ -8,9 +8,11 @@
  * https://github.com/facebook/react-native
  */
 
-import React, { Component, useState, useRef, useEffect } from 'react';
-import { Platform, StyleSheet, Text, View, TouchableOpacity as Touchable, Animated } from 'react-native';
-import TabSwipe from 'react-native-tab-swipe';
+import React, { Component } from 'react';
+import { View, TouchableOpacity } from 'react-native';
+import TabSwipe, { withContext, withSwipeControl, withTabControl } from 'react-native-tab-swipe'
+
+const TabSwipeWithTabControl = withContext(withTabControl(withSwipeControl(TabSwipe)))
 
 export default class App extends Component<{}> {
   state = {
@@ -18,10 +20,14 @@ export default class App extends Component<{}> {
   }
   render() {
     return (
-      <TabSwipe
+      <TabSwipeWithTabControl
         onPressTab={(newIndex) => this.setState({ index: newIndex })}
         index={this.state.index}
-      />
+      >
+        <View style={{ width: '100%', height: 200, backgroundColor: 'yellow' }} />
+        <View style={{ width: '100%', height: 200, backgroundColor: 'grey' }} />
+        <View style={{ width: '100%', height: 200, backgroundColor: 'cyan' }} />
+      </TabSwipeWithTabControl>
     );
   }
 }

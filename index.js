@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useContext } from 'react'
 import { View, Text, Animated } from 'react-native'
 import Touchable from 'react-native-platform-touchable'
+import { PanGestureHandler, State } from 'react-native-gesture-handler'
 
 const useEffectOnUpdate = (callback, dependencies) => {
   const alreadyCalledIt = useRef(false)
@@ -14,52 +15,149 @@ const useEffectOnUpdate = (callback, dependencies) => {
   }, dependencies)
 }
 
-const TabSwipe = ({
-  index = 0,
-  onPressTab,
+const childrenNumber = 3
+
+const TabContext = React.createContext()
+
+const withContext = Component => ({
+  index: initialIndex,
+  ...restOfProps
 }) => {
-  const tabsContainerLeftPosition = useRef(new Animated.Value(0))
+  const [index, setIndex] = useState(initialIndex)
+  const [tabsWidth, setTabsWidth] = useState(-1)
+  const [tabsContainerLeftPosition, setTabsContainerLeftPosition] = useState(new Animated.Value(0))
   const animation = useRef()
-  const [tabsContainerWidth, setTabsContainerWidth] = useState(-1)
-  const selectedStyle = { borderBottomWidth: 5, color: 'green' }
 
   const onTabsLayout = ({nativeEvent: { layout: {width}}}) => {
-    setTabsContainerWidth(width)
-    tabsContainerLeftPosition.current = new Animated.Value((-index) * width)
+    setTabsWidth(width)
   }
 
-  useEffectOnUpdate(() => {
+  useEffect(() => {
+    setTabsContainerLeftPosition(new Animated.Value((-index) * tabsWidth))
+  }, [tabsWidth])
+
+  animateToIndex = (newIndex) => {
     if (animation.current && animation.current.stop) {
       animation.current.stop()
     }
     animation.current = Animated.timing(
-      tabsContainerLeftPosition.current,
+      tabsContainerLeftPosition,
       {
-        toValue: (-index) * tabsContainerWidth,
-        duration: 200,
+        toValue: (-newIndex) * tabsWidth,
+        duration: 100,
       }
     ).start()
+  }
+
+  useEffectOnUpdate(() => {
+    animateToIndex(index)
   }, [index])
+
+  return (
+    <TabContext.Provider
+      value={{
+        index,
+        setIndex,
+        tabsWidth,
+        tabsContainerLeftPosition: tabsContainerLeftPosition,
+        animateToIndex,
+      }}
+    >
+      <Component
+        {...restOfProps}
+        onPressTab={newIndex => setIndex(newIndex)}
+        index={index}
+        onTabsLayout={onTabsLayout}
+        tabsLeftPosition={tabsContainerLeftPosition}
+      />
+    </TabContext.Provider>
+  )
+}
+
+const withTabControl = TabSwipeComponent => props => {
+  const contextState = useContext(TabContext)
+
+  useEffectOnUpdate(() => {
+    contextState.animateToIndex(contextState.index)
+  }, [contextState.index])
+
+  return (
+    <TabSwipeComponent
+      {...props}
+    />
+  )
+}
+
+const withSwipeControl = TabSwipeComponent => props => {
+  const contextState = useContext(TabContext)
+  const rawXOffsetDrag = useRef(null)
+
+  return (
+    <PanGestureHandler
+      onGestureEvent={({ nativeEvent: { translationX } }) => {
+        rawXOffsetDrag.current = translationX
+
+        let newLeftPosition = contextState.tabsWidth * (-contextState.index) + translationX
+        contextState.tabsContainerLeftPosition.setValue(
+          newLeftPosition
+        )
+      }}
+      onHandlerStateChange={({ nativeEvent: { state } }) => {
+        const value = rawXOffsetDrag.current
+        if (state === State.END) {
+          const scrolledMoreThanHalfTabWidth = Math.abs(value) > contextState.tabsWidth / 3
+          const tabsScrolledToRight = value > 0
+          const tabsScrolledToLeft = value < 0
+
+          if (
+            !scrolledMoreThanHalfTabWidth
+            || (tabsScrolledToRight && contextState.index === 0)
+            || (tabsScrolledToLeft && contextState.index === childrenNumber - 1)
+          ) {
+            contextState.animateToIndex(contextState.index)
+            return
+          }
+
+          if (scrolledMoreThanHalfTabWidth && tabsScrolledToLeft) {
+            contextState.setIndex(contextState.index + 1)
+          }
+          if (scrolledMoreThanHalfTabWidth && tabsScrolledToRight) {
+            contextState.setIndex(contextState.index - 1)
+          }
+        }
+      }}
+    >
+      <View style={{ backgroundColor: 'green', flexDirection: 'row' }}>
+        <TabSwipeComponent {...props}/>
+      </View>
+    </PanGestureHandler>
+  )
+}
+
+const TabSwipe = ({
+  index = 0,
+  onPressTab,
+  tabsLeftPosition,
+  onTabsLayout,
+  children,
+}) => {
+  const selectedStyle = { borderBottomWidth: 5, color: 'green' }
 
   return (
     <View style={{ flex: 1, backgroundColor: 'red' }}>
       <View style={{ backgroundColor: 'white' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-around', borderBottomWidth: 5, borderBottomColor: 'black' }}>
-          <Touchable onPress={() => onPressTab(0)} style={{ flex: 1, ...(index === 0 ? selectedStyle : {})  }}>
-            <Text>Tab 1</Text>
-          </Touchable>
-          <Touchable onPress={() => onPressTab(1)} style={{ flex: 1, ...(index === 1 ? selectedStyle : {}) }}>
-            <Text>Tab 2</Text>
-          </Touchable>
-          <Touchable onPress={() => onPressTab(2)} style={{ flex: 1, ...(index === 2 ? selectedStyle : {}) }}>
-            <Text>Tab 3</Text>
-          </Touchable>
+          {
+            React.Children.map(children, (_child, childrenIndex) => (
+              <Touchable key={`child_${childrenIndex}`} onPress={() => onPressTab(childrenIndex)} style={{ flex: 1, ...(index === childrenIndex ? selectedStyle : {})  }}>
+                <Text>Tab {childrenIndex}</Text>
+              </Touchable>
+            ))
+          }
         </View>
 
-        <Animated.View onLayout={onTabsLayout} style={{ width: '100%', flexDirection: 'row', left: tabsContainerLeftPosition.current }}>
-          <View style={{ width: '100%', height: 200, backgroundColor: 'yellow' }} />
-          <View style={{ width: '100%', height: 200, backgroundColor: 'grey' }} />
-          <View style={{ width: '100%', height: 200, backgroundColor: 'cyan' }} />
+        <Animated.View onLayout={onTabsLayout} style={{ width: '100%', flexDirection: 'row', left: tabsLeftPosition }}>
+          { children }
         </Animated.View>
       </View>
     </View>
@@ -67,3 +165,4 @@ const TabSwipe = ({
 }
 
 export default TabSwipe
+export { withTabControl, withContext, withSwipeControl }
